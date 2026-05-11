@@ -1,0 +1,11 @@
+services:
+  affine-todo-bridge:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3456:3000"   # only reachable locally; put behind reverse proxy if needed
+    environment:
+      AFFINE_URL: https://affine.avernus.cloud
+      AFFINE_TOKEN: ${AFFINE_TOKEN}
+      AFFINE_WORKSPACE_ID: ${AFFINE_WORKSPACE_ID}
+      AFFINE_TODO_DOC_ID: ${AFFINE_TODO_DOC_ID:-}   # leave empty → creates a new page per run

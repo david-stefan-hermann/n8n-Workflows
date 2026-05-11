@@ -1,0 +1,16 @@
+{
+  "name": "affine-todo-bridge",
+  "version": "1.0.0",
+  "description": "Bridge service: n8n → AFFiNE todos via Yjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "yjs": "^13.6.18"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
