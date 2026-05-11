@@ -4,10 +4,7 @@ services:
       context: https://github.com/david-stefan-hermann/n8n-Workflows.git#master:affine-todo-bridge
     container_name: affine-todo-bridge
     restart: unless-stopped
-    environment:
-      AFFINE_TOKEN: ***
-      AFFINE_WORKSPACE_ID: ***
-      AFFINE_TODO_DOC_ID: ""   # optional: AFFiNE-Page-ID für feste Inbox-Seite
+    env_file: .env
     networks:
       - ix-n8n_ix-internal-n8n-net
 
