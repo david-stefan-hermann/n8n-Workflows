@@ -5,8 +5,8 @@ services:
     container_name: affine-todo-bridge
     restart: unless-stopped
     environment:
-      AFFINE_TOKEN: ut_D-aHpN_CQlMl4ybJrG679EDo9tYLoHIcOfDRgP2edVM
-      AFFINE_WORKSPACE_ID: 295d1599-55ab-4118-a6ac-07a6df35358e
+      AFFINE_TOKEN: ***
+      AFFINE_WORKSPACE_ID: ***
       AFFINE_TODO_DOC_ID: ""   # optional: AFFiNE-Page-ID für feste Inbox-Seite
     networks:
       - ix-n8n_ix-internal-n8n-net
