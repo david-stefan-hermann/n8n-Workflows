@@ -44,6 +44,7 @@ async function pushUpdate(docId, updateBuffer) {
 
     socket = io(AFFINE_URL, {
       transports: ['websocket'],
+      auth: { token: TOKEN },
       extraHeaders: { 'Authorization': `Bearer ${TOKEN}` },
     });
 
@@ -55,29 +56,40 @@ async function pushUpdate(docId, updateBuffer) {
     socket.on('connect', () => {
       console.log('[socket] connected, sid:', socket.id);
 
-      socket.emit(
-        'space:join',
+      // Try different payload shapes until one succeeds
+      const joinPayloads = [
         { spaceId: WORKSPACE_ID, spaceType: 'workspace' },
-        joinRes => {
+        { spaceId: WORKSPACE_ID },
+        { workspaceId: WORKSPACE_ID },
+      ];
+
+      const tryJoin = (idx = 0) => {
+        if (idx >= joinPayloads.length) {
+          clearTimeout(timer);
+          return fail('space:join failed with all payload variants');
+        }
+        const payload = joinPayloads[idx];
+        console.log('[socket] trying space:join:', JSON.stringify(payload));
+        socket.emit('space:join', payload, joinRes => {
           console.log('[socket] space:join response:', JSON.stringify(joinRes));
-          if (joinRes?.error) {
-            clearTimeout(timer);
-            return fail(`space:join failed: ${joinRes.error}`);
-          }
+          const ok = joinRes?.success ?? joinRes?.data?.success;
+          if (ok === false || joinRes?.error) return tryJoin(idx + 1);
 
           socket.emit(
             'space:push-doc-update',
             { spaceId: WORKSPACE_ID, spaceType: 'workspace', docId, updates: updateBuffer },
             pushRes => {
-              console.log('[socket] space:push-doc-update response:', JSON.stringify(pushRes));
+              console.log('[socket] push response:', JSON.stringify(pushRes));
               clearTimeout(timer);
               socket.disconnect();
               if (pushRes?.error) reject(new Error(`push failed: ${JSON.stringify(pushRes)}`));
               else resolve(pushRes);
             },
           );
-        },
-      );
+        });
+      };
+
+      tryJoin();
     });
   });
 }
