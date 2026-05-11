@@ -65,7 +65,6 @@ async function pushUpdate(docId, updateBuffer) {
     const timer = setTimeout(() => fail('Socket.IO push timed out after 15s'), 15_000);
 
     const cookieHeader = sessionCookie ? `affine_session=${sessionCookie}` : null;
-    console.log('[socket] connecting, cookie:', cookieHeader ? 'yes' : 'no');
 
     socket = io(AFFINE_URL, {
       transports: ['websocket'],
@@ -79,14 +78,12 @@ async function pushUpdate(docId, updateBuffer) {
     });
 
     socket.on('connect', async () => {
-      console.log('[socket] connected, sid:', socket.id);
       try {
         const joinRes = await socket.emitWithAck('space:join', {
           spaceType: 'workspace',
-          spaceId: WORKSPACE_ID,
+          spaceId:   WORKSPACE_ID,
           clientVersion: '0.26.0',
         });
-        console.log('[socket] space:join response:', JSON.stringify(joinRes));
         if (!joinRes?.data?.success) {
           clearTimeout(timer);
           return fail(`space:join failed: ${JSON.stringify(joinRes)}`);
@@ -98,7 +95,6 @@ async function pushUpdate(docId, updateBuffer) {
           docId,
           update:    Buffer.from(updateBuffer).toString('base64'),
         });
-        console.log('[socket] push response:', JSON.stringify(pushRes));
         clearTimeout(timer);
         socket.disconnect();
         if (pushRes?.error) reject(new Error(`push failed: ${JSON.stringify(pushRes)}`));
@@ -177,9 +173,7 @@ function buildNewPageDoc(pageTitle, todos) {
 
 // Append todo blocks to an existing AFFiNE page
 async function appendTodosToDoc(docId, todos) {
-  console.log('[appendTodos] fetching doc:', docId);
   const existing = await fetchDocBinary(docId);
-  console.log('[appendTodos] doc fetched, bytes:', existing.length);
 
   const doc = new Y.Doc();
   Y.applyUpdate(doc, existing);
@@ -215,8 +209,6 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 // POST /todo  { title, description?, emailFrom?, emailDate? }
 app.post('/todo', async (req, res) => {
   try {
-    console.log('[/todo] request body:', JSON.stringify(req.body));
-    console.log('[/todo] TODO_DOC_ID:', TODO_DOC_ID || '(not set)');
     const { title, description, emailFrom, emailDate } = req.body;
     if (!title) return res.status(400).json({ error: 'title is required' });
 
@@ -250,7 +242,7 @@ app.post('/todo', async (req, res) => {
       url: `${AFFINE_URL}/workspace/${WORKSPACE_ID}/${docId}`,
     });
   } catch (err) {
-    console.error('[/todo] FULL ERROR:', err);
+    console.error('[/todo]', err.message);
     res.status(500).json({ error: err.message });
   }
 });
