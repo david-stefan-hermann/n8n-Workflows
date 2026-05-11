@@ -138,7 +138,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://host.docker.internal:3456/todo",
+        "url": "http://affine-todo-bridge:3000/todo",
         "sendBody": true,
         "bodyContentType": "json",
         "jsonBody": "={{ JSON.stringify({ title: $json.todoTitle, description: $json.todoDescription, emailFrom: $json.emailFrom, emailDate: $json.emailDate }) }}",
