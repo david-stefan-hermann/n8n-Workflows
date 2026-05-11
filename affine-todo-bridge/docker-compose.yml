@@ -1,16 +1,16 @@
 services:
   affine-todo-bridge:
-    build: .
+    build:
+      context: https://github.com/david-stefan-hermann/n8n-Workflows.git#master:affine-todo-bridge
     container_name: affine-todo-bridge
     restart: unless-stopped
     environment:
-      AFFINE_URL: https://affine.avernus.cloud
-      AFFINE_TOKEN: ${AFFINE_TOKEN}
-      AFFINE_WORKSPACE_ID: ${AFFINE_WORKSPACE_ID}
-      AFFINE_TODO_DOC_ID: ${AFFINE_TODO_DOC_ID:-}
+      AFFINE_TOKEN: ut_D-aHpN_CQlMl4ybJrG679EDo9tYLoHIcOfDRgP2edVM
+      AFFINE_WORKSPACE_ID: 295d1599-55ab-4118-a6ac-07a6df35358e
+      AFFINE_TODO_DOC_ID: ""   # optional: AFFiNE-Page-ID für feste Inbox-Seite
     networks:
-      - proxy   # ← Name deines shared Docker-Netzwerks (aus: docker network ls)
+      - ix-n8n_ix-internal-n8n-net
 
 networks:
-  proxy:
+  ix-n8n_ix-internal-n8n-net:
     external: true
