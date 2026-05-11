@@ -8,11 +8,32 @@ app.use(express.json());
 const AFFINE_URL    = process.env.AFFINE_URL    || 'https://affine.avernus.cloud';
 const TOKEN         = process.env.AFFINE_TOKEN;
 const WORKSPACE_ID  = process.env.AFFINE_WORKSPACE_ID;
-const TODO_DOC_ID   = process.env.AFFINE_TODO_DOC_ID; // optional – fixed inbox page
+const TODO_DOC_ID   = process.env.AFFINE_TODO_DOC_ID;
+const AFFINE_EMAIL  = process.env.AFFINE_EMAIL;
+const AFFINE_PASS   = process.env.AFFINE_PASSWORD;
 
-if (!TOKEN || !WORKSPACE_ID) {
-  console.error('AFFINE_TOKEN and AFFINE_WORKSPACE_ID are required');
+if (!WORKSPACE_ID) {
+  console.error('AFFINE_WORKSPACE_ID is required');
   process.exit(1);
+}
+
+// Session cookie obtained via email/password login (more reliable for Socket.IO)
+let sessionCookie = null;
+
+async function ensureSession() {
+  if (sessionCookie) return;
+  if (!AFFINE_EMAIL || !AFFINE_PASS) return;
+  const res = await fetch(`${AFFINE_URL}/api/auth/sign-in`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: AFFINE_EMAIL, password: AFFINE_PASS }),
+  });
+  const setCookieHeader = res.headers.get('set-cookie') || '';
+  const match = setCookieHeader.match(/affine_session=([^;]+)/);
+  if (match) {
+    sessionCookie = match[1];
+    console.log('[auth] session cookie obtained');
+  }
 }
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -32,6 +53,7 @@ async function fetchDocBinary(docId) {
 
 // Push a Yjs update via Socket.IO (the protocol the AFFiNE client uses)
 async function pushUpdate(docId, updateBuffer) {
+  await ensureSession();
   return new Promise((resolve, reject) => {
     let socket;
 
@@ -42,10 +64,16 @@ async function pushUpdate(docId, updateBuffer) {
 
     const timer = setTimeout(() => fail('Socket.IO push timed out after 15s'), 15_000);
 
+    const headers = TOKEN
+      ? { 'Authorization': `Bearer ${TOKEN}` }
+      : {};
+    if (sessionCookie) headers['Cookie'] = `affine_session=${sessionCookie}`;
+    console.log('[socket] connecting with:', Object.keys(headers).join(', '));
+
     socket = io(AFFINE_URL, {
       transports: ['websocket'],
-      auth: { token: TOKEN },
-      extraHeaders: { 'Authorization': `Bearer ${TOKEN}` },
+      auth: sessionCookie ? { cookie: `affine_session=${sessionCookie}` } : { token: TOKEN },
+      extraHeaders: headers,
     });
 
     socket.on('connect_error', err => {
