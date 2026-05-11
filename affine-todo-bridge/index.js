@@ -64,16 +64,13 @@ async function pushUpdate(docId, updateBuffer) {
 
     const timer = setTimeout(() => fail('Socket.IO push timed out after 15s'), 15_000);
 
-    const headers = TOKEN
-      ? { 'Authorization': `Bearer ${TOKEN}` }
-      : {};
-    if (sessionCookie) headers['Cookie'] = `affine_session=${sessionCookie}`;
-    console.log('[socket] connecting with:', Object.keys(headers).join(', '));
+    const cookieHeader = sessionCookie ? `affine_session=${sessionCookie}` : null;
+    console.log('[socket] connecting, cookie:', cookieHeader ? 'yes' : 'no');
 
     socket = io(AFFINE_URL, {
       transports: ['websocket'],
-      auth: sessionCookie ? { cookie: `affine_session=${sessionCookie}` } : { token: TOKEN },
-      extraHeaders: headers,
+      withCredentials: true,
+      extraHeaders: cookieHeader ? { cookie: cookieHeader } : undefined,
     });
 
     socket.on('connect_error', err => {
@@ -81,43 +78,35 @@ async function pushUpdate(docId, updateBuffer) {
       fail(`Socket connect error: ${err.message}`);
     });
 
-    socket.on('connect', () => {
+    socket.on('connect', async () => {
       console.log('[socket] connected, sid:', socket.id);
-
-      // Try different payload shapes until one succeeds
-      const joinPayloads = [
-        { spaceId: WORKSPACE_ID, spaceType: 'workspace' },
-        { spaceId: WORKSPACE_ID },
-        { workspaceId: WORKSPACE_ID },
-      ];
-
-      const tryJoin = (idx = 0) => {
-        if (idx >= joinPayloads.length) {
-          clearTimeout(timer);
-          return fail('space:join failed with all payload variants');
-        }
-        const payload = joinPayloads[idx];
-        console.log('[socket] trying space:join:', JSON.stringify(payload));
-        socket.emit('space:join', payload, joinRes => {
-          console.log('[socket] space:join response:', JSON.stringify(joinRes));
-          const ok = joinRes?.success ?? joinRes?.data?.success;
-          if (ok === false || joinRes?.error) return tryJoin(idx + 1);
-
-          socket.emit(
-            'space:push-doc-update',
-            { spaceId: WORKSPACE_ID, spaceType: 'workspace', docId, updates: updateBuffer },
-            pushRes => {
-              console.log('[socket] push response:', JSON.stringify(pushRes));
-              clearTimeout(timer);
-              socket.disconnect();
-              if (pushRes?.error) reject(new Error(`push failed: ${JSON.stringify(pushRes)}`));
-              else resolve(pushRes);
-            },
-          );
+      try {
+        const joinRes = await socket.emitWithAck('space:join', {
+          spaceType: 'workspace',
+          spaceId: WORKSPACE_ID,
+          clientVersion: '0.26.0',
         });
-      };
+        console.log('[socket] space:join response:', JSON.stringify(joinRes));
+        if (!joinRes?.data?.success) {
+          clearTimeout(timer);
+          return fail(`space:join failed: ${JSON.stringify(joinRes)}`);
+        }
 
-      tryJoin();
+        const pushRes = await socket.emitWithAck('space:push-doc-update', {
+          spaceType: 'workspace',
+          spaceId:   WORKSPACE_ID,
+          docId,
+          update:    Buffer.from(updateBuffer).toString('base64'),
+        });
+        console.log('[socket] push response:', JSON.stringify(pushRes));
+        clearTimeout(timer);
+        socket.disconnect();
+        if (pushRes?.error) reject(new Error(`push failed: ${JSON.stringify(pushRes)}`));
+        else resolve(pushRes);
+      } catch (err) {
+        clearTimeout(timer);
+        fail(`Socket operation error: ${err.message}`);
+      }
     });
   });
 }
