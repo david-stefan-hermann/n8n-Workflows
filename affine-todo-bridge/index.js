@@ -23,16 +23,23 @@ let sessionCookie = null;
 async function ensureSession() {
   if (sessionCookie) return;
   if (!AFFINE_EMAIL || !AFFINE_PASS) return;
-  const res = await fetch(`${AFFINE_URL}/api/auth/sign-in`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: AFFINE_EMAIL, password: AFFINE_PASS }),
-  });
-  const setCookieHeader = res.headers.get('set-cookie') || '';
-  const match = setCookieHeader.match(/affine_session=([^;]+)/);
-  if (match) {
-    sessionCookie = match[1];
-    console.log('[auth] session cookie obtained');
+  try {
+    const res = await fetch(`${AFFINE_URL}/api/auth/sign-in`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: AFFINE_EMAIL, password: AFFINE_PASS }),
+    });
+    // Node 18+ uses getSetCookie() for multiple set-cookie headers
+    const all = (res.headers.getSetCookie?.() || []).join('; ') || res.headers.get('set-cookie') || '';
+    const match = all.match(/affine_session=([^;,\s]+)/);
+    if (match) {
+      sessionCookie = match[1];
+      console.log('[auth] session cookie obtained');
+    } else {
+      console.error('[auth] sign-in failed — status:', res.status, 'cookies:', all.slice(0, 100));
+    }
+  } catch (err) {
+    console.error('[auth] sign-in error:', err.message);
   }
 }
 
