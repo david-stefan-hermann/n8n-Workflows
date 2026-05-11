@@ -168,9 +168,18 @@ function buildNewPageDoc(pageTitle, todos) {
   blocks.set(noteId, note);
 
   // todo blocks
-  todos.forEach(text => {
+  todos.forEach(({ text, subItems = [] }) => {
     const id = genId();
-    blocks.set(id, makeTodoBlock(id, text));
+    const block = makeTodoBlock(id, text);
+    if (subItems.length > 0) {
+      const childArr = block.get('sys:children');
+      subItems.forEach(subText => {
+        const subId = genId();
+        blocks.set(subId, makeTodoBlock(subId, subText));
+        childArr.push([subId]);
+      });
+    }
+    blocks.set(id, block);
     noteChildren.push([id]);
   });
 
@@ -234,11 +243,37 @@ async function appendTodosToDoc(docId, todos) {
     noteChildren.push([h2Id]);
   }
 
-  // Append todos after the h2 (at end of note)
-  todos.forEach(text => {
+    // Find insert position: end of the "Email Todos" section (before any following h2)
+  let insertAt = noteChildren.length - 1; // default: end of note
+  let inSection = false;
+  for (let i = 0; i < noteChildren.length; i++) {
+    const child = blocks.get(noteChildren.get(i));
+    if (!(child instanceof Y.Map)) continue;
+    if (child.get('sys:flavour') === 'affine:paragraph' && child.get('prop:type') === 'h2') {
+      const txt = child.get('prop:text')?.toString();
+      if (txt === 'Email Todos') { inSection = true; insertAt = i; continue; }
+      if (inSection) { insertAt = i - 1; break; }
+    } else if (inSection) {
+      insertAt = i;
+    }
+  }
+
+  // Append todos right after the last item in the section
+  todos.forEach(({ text, subItems = [] }) => {
     const id = genId();
-    blocks.set(id, makeTodoBlock(id, text));
-    noteChildren.push([id]);
+    const block = makeTodoBlock(id, text);
+    // Add sub-items as children
+    if (subItems.length > 0) {
+      const childArr = block.get('sys:children');
+      subItems.forEach(subText => {
+        const subId = genId();
+        blocks.set(subId, makeTodoBlock(subId, subText));
+        childArr.push([subId]);
+      });
+    }
+    blocks.set(id, block);
+    insertAt++;
+    noteChildren.insert(insertAt, [id]);
   });
 
   const diff = Y.encodeStateAsUpdate(doc, svBefore);
@@ -253,27 +288,20 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 // POST /todo  { title, description?, emailFrom?, emailDate? }
 app.post('/todo', async (req, res) => {
   try {
-    const { title, description, emailFrom, emailDate } = req.body;
+    const { title, subItems = [], emailDate } = req.body;
     if (!title) return res.status(400).json({ error: 'title is required' });
 
-    // Build the text shown in AFFiNE: title + optional source line
-    const lines = [title];
-    if (description && description !== title) lines.push(`  → ${description}`);
-    if (emailFrom) lines.push(`  📧 ${emailFrom}`);
-    const todoText = lines.join('\n');
+    const parsedSubItems = Array.isArray(subItems) ? subItems : [];
 
     let docId;
     let mode;
 
     if (TODO_DOC_ID) {
-      // Append to a fixed "inbox" page
-      docId = await appendTodosToDoc(TODO_DOC_ID, [todoText]);
+      docId = await appendTodosToDoc(TODO_DOC_ID, [{ text: title, subItems: parsedSubItems }]);
       mode  = 'append';
     } else {
-      // Create a new dated page
       const date  = (emailDate || new Date().toISOString()).slice(0, 10);
-      const title = `Email Todos – ${date}`;
-      const built = buildNewPageDoc(title, [todoText]);
+      const built = buildNewPageDoc(`Email Todos – ${date}`, [{ text: title, subItems: parsedSubItems }]);
       await pushUpdate(built.docId, built.update);
       docId = built.docId;
       mode  = 'new-page';
