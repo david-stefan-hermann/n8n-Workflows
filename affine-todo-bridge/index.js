@@ -44,9 +44,11 @@ function genId(len = 10) {
 }
 
 async function fetchDocBinary(docId) {
-  const res = await fetch(`${AFFINE_URL}/api/workspaces/${WORKSPACE_ID}/docs/${docId}`, {
-    headers: { 'Authorization': `Bearer ${TOKEN}` },
-  });
+  await ensureSession();
+  const headers = {};
+  if (sessionCookie) headers['Cookie'] = `affine_session=${sessionCookie}`;
+  else if (TOKEN)    headers['Authorization'] = `Bearer ${TOKEN}`;
+  const res = await fetch(`${AFFINE_URL}/api/workspaces/${WORKSPACE_ID}/docs/${docId}`, { headers });
   if (!res.ok) throw new Error(`fetchDoc ${docId} → ${res.status} ${res.statusText}`);
   return Buffer.from(await res.arrayBuffer());
 }
