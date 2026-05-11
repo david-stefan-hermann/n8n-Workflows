@@ -53,29 +53,26 @@ async function pushUpdate(docId, updateBuffer) {
     });
 
     socket.on('connect', () => {
-      // Step 1: join the workspace space
+      console.log('[socket] connected, sid:', socket.id);
+
       socket.emit(
         'space:join',
         { spaceId: WORKSPACE_ID, spaceType: 'workspace' },
         joinRes => {
+          console.log('[socket] space:join response:', JSON.stringify(joinRes));
           if (joinRes?.error) {
             clearTimeout(timer);
             return fail(`space:join failed: ${joinRes.error}`);
           }
 
-          // Step 2: push the doc update
           socket.emit(
             'space:push-doc-update',
-            {
-              spaceId:   WORKSPACE_ID,
-              spaceType: 'workspace',
-              docId,
-              updates:   updateBuffer,
-            },
+            { spaceId: WORKSPACE_ID, spaceType: 'workspace', docId, updates: updateBuffer },
             pushRes => {
+              console.log('[socket] space:push-doc-update response:', JSON.stringify(pushRes));
               clearTimeout(timer);
               socket.disconnect();
-              if (pushRes?.error) reject(new Error(`space:push-doc-update failed: ${pushRes.error}`));
+              if (pushRes?.error) reject(new Error(`push failed: ${JSON.stringify(pushRes)}`));
               else resolve(pushRes);
             },
           );
