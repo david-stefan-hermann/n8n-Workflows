@@ -1,5 +1,6 @@
 const express = require('express');
 const Y = require('yjs');
+const { io } = require('socket.io-client');
 
 const app = express();
 app.use(express.json());
@@ -21,20 +22,6 @@ function genId(len = 10) {
   return Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
-async function gql(query, variables = {}) {
-  const res = await fetch(`${AFFINE_URL}/graphql`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${TOKEN}`,
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-  const data = await res.json();
-  if (data.errors) throw new Error(data.errors.map(e => e.message).join(' | '));
-  return data.data;
-}
-
 async function fetchDocBinary(docId) {
   const res = await fetch(`${AFFINE_URL}/api/workspaces/${WORKSPACE_ID}/docs/${docId}`, {
     headers: { 'Authorization': `Bearer ${TOKEN}` },
@@ -43,13 +30,42 @@ async function fetchDocBinary(docId) {
   return Buffer.from(await res.arrayBuffer());
 }
 
-async function pushUpdate(docId, base64Update) {
-  return gql(
-    `mutation($w:String!,$d:String!,$o:String!,$u:String!){
-       applyDocUpdates(workspaceId:$w, docId:$d, op:$o, updates:$u)
-     }`,
-    { w: WORKSPACE_ID, d: docId, o: 'update', u: base64Update },
-  );
+// Push a Yjs update via Socket.IO (the protocol the AFFiNE client uses)
+async function pushUpdate(docId, updateBuffer) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      socket.disconnect();
+      reject(new Error('Socket.IO push timed out after 10s'));
+    }, 10_000);
+
+    const socket = io(AFFINE_URL, {
+      transports: ['websocket'],
+      extraHeaders: { 'Authorization': `Bearer ${TOKEN}` },
+    });
+
+    socket.on('connect_error', err => {
+      clearTimeout(timer);
+      reject(new Error(`Socket connect error: ${err.message}`));
+    });
+
+    socket.on('connect', () => {
+      socket.emit(
+        'space:push-doc-update',
+        {
+          spaceId:   WORKSPACE_ID,
+          spaceType: 'workspace',
+          docId,
+          updates:   updateBuffer,  // raw Uint8Array / Buffer
+        },
+        res => {
+          clearTimeout(timer);
+          socket.disconnect();
+          if (res?.error) reject(new Error(res.error));
+          else resolve(res);
+        },
+      );
+    });
+  });
 }
 
 // ─── Yjs helpers ────────────────────────────────────────────────────────────
@@ -112,7 +128,7 @@ function buildNewPageDoc(pageTitle, todos) {
 
   return {
     docId:  pageId,
-    update: Buffer.from(Y.encodeStateAsUpdate(doc)).toString('base64'),
+    update: Y.encodeStateAsUpdate(doc),
   };
 }
 
@@ -143,7 +159,7 @@ async function appendTodosToDoc(docId, todos) {
   });
 
   const diff = Y.encodeStateAsUpdate(doc, svBefore);
-  await pushUpdate(docId, Buffer.from(diff).toString('base64'));
+  await pushUpdate(docId, diff);
   return docId;
 }
 

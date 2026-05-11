@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "express": "^4.19.2",
+    "socket.io-client": "^4.8.1",
     "yjs": "^13.6.18"
   },
   "engines": {
