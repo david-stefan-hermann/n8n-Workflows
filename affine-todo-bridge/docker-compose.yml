@@ -1,12 +1,18 @@
 services:
   affine-todo-bridge:
-    build:
-      context: https://github.com/david-stefan-hermann/n8n-Workflows.git#master:affine-todo-bridge
+    image: node:20-alpine
     container_name: affine-todo-bridge
     restart: unless-stopped
-    env_file: .env
+    working_dir: /app
+    command: >
+      sh -c "apk add --no-cache curl &&
+             curl -fsSL https://raw.githubusercontent.com/david-stefan-hermann/n8n-Workflows/master/affine-todo-bridge/index.js -o index.js &&
+             curl -fsSL https://raw.githubusercontent.com/david-stefan-hermann/n8n-Workflows/master/affine-todo-bridge/package.json -o package.json &&
+             npm install --production --silent &&
+             node index.js"
     ports:
       - "30170:3000"
+    env_file: .env
     networks:
       - ix-n8n_ix-internal-n8n-net
 
