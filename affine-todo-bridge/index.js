@@ -33,35 +33,52 @@ async function fetchDocBinary(docId) {
 // Push a Yjs update via Socket.IO (the protocol the AFFiNE client uses)
 async function pushUpdate(docId, updateBuffer) {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      socket.disconnect();
-      reject(new Error('Socket.IO push timed out after 10s'));
-    }, 10_000);
+    let socket;
 
-    const socket = io(AFFINE_URL, {
+    const fail = msg => {
+      if (socket) socket.disconnect();
+      reject(new Error(msg));
+    };
+
+    const timer = setTimeout(() => fail('Socket.IO push timed out after 15s'), 15_000);
+
+    socket = io(AFFINE_URL, {
       transports: ['websocket'],
       extraHeaders: { 'Authorization': `Bearer ${TOKEN}` },
     });
 
     socket.on('connect_error', err => {
       clearTimeout(timer);
-      reject(new Error(`Socket connect error: ${err.message}`));
+      fail(`Socket connect error: ${err.message}`);
     });
 
     socket.on('connect', () => {
+      // Step 1: join the workspace space
       socket.emit(
-        'space:push-doc-update',
-        {
-          spaceId:   WORKSPACE_ID,
-          spaceType: 'workspace',
-          docId,
-          updates:   updateBuffer,  // raw Uint8Array / Buffer
-        },
-        res => {
-          clearTimeout(timer);
-          socket.disconnect();
-          if (res?.error) reject(new Error(res.error));
-          else resolve(res);
+        'space:join',
+        { spaceId: WORKSPACE_ID, spaceType: 'workspace' },
+        joinRes => {
+          if (joinRes?.error) {
+            clearTimeout(timer);
+            return fail(`space:join failed: ${joinRes.error}`);
+          }
+
+          // Step 2: push the doc update
+          socket.emit(
+            'space:push-doc-update',
+            {
+              spaceId:   WORKSPACE_ID,
+              spaceType: 'workspace',
+              docId,
+              updates:   updateBuffer,
+            },
+            pushRes => {
+              clearTimeout(timer);
+              socket.disconnect();
+              if (pushRes?.error) reject(new Error(`space:push-doc-update failed: ${pushRes.error}`));
+              else resolve(pushRes);
+            },
+          );
         },
       );
     });
