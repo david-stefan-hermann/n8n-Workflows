@@ -1,31 +1,77 @@
 # n8n Workflows
 
-A personal collection of n8n automation workflows, built with AI assistance using Claude Code.
+A personal collection of n8n automation workflows for [avernus.cloud](https://n8n.avernus.cloud), built with AI assistance using Claude Code.
+
+---
+
+## Workflows
+
+### Email → Calendar + AFFiNE Todos
+
+**Trigger:** Every new email (Gmail Trigger, polling every minute)
+
+Processes each incoming email with Claude Haiku 4.5 and routes relevant information to the right place automatically.
+
+```
+Gmail Trigger
+    └─► Claude Haiku 4.5 (analysis)
+            ├─► Has appointment? ──► Google Calendar (create event)
+            └─► Has todo?        ──► AFFiNE (append under "Email Todos" h2)
+```
+
+**What gets a calendar entry:**
+- Any email proposing a specific date and time for a meeting or event
+
+**What gets a todo entry:**
+- Shipping confirmations with tracking number
+- Invoices and receipts
+- Reservations (hotel, flight, restaurant, tickets)
+- Replies explicitly needed
+- Registrations and deadlines
+- Login credentials or important documents received
+- HTW Berlin: course cancellations, online/hybrid changes, assignment deadlines, exam registrations, grade entries, re-enrollment deadlines
+
+**What is intentionally ignored:**
+- Sent emails (no self-todos)
+- HTW Berlin social events, job postings, general announcements
+- Newsletters and marketing emails
+
+**Todo format:**
+- Emoji-prefixed single item in German: `📦 Paket: Amazon – AirPods (DE123456789) [empfangen: 11.05.2026 20:50]`
+- Optional nested sub-items for complex multi-step actions
+- Always appended under the `## Email Todos` heading in the target AFFiNE page
+
+---
+
+## Infrastructure
+
+### AFFiNE Todo Bridge
+
+A small Node.js service ([`affine-todo-bridge/`](affine-todo-bridge/)) that translates n8n HTTP requests into Yjs document updates for AFFiNE.
+
+See [`affine-todo-bridge/README.md`](affine-todo-bridge/README.md) for deployment and the full AFFiNE API findings.
+
+---
 
 ## Setup
 
-This repository is paired with two tools that give Claude expert-level knowledge of n8n when generating or reviewing workflows:
+### Tools installed globally
 
-### n8n-MCP Server
-[czlonkowski/n8n-mcp](https://github.com/czlonkowski/n8n-mcp) — an MCP server that exposes structured documentation for all 1,650+ n8n nodes directly inside Claude Code. This allows Claude to look up correct node properties, operations, and configuration options instead of guessing.
+| Tool | Purpose | Config |
+|---|---|---|
+| [n8n-mcp](https://github.com/czlonkowski/n8n-mcp) | MCP server with docs for all 1,650+ n8n nodes | `~/.claude/settings.json` |
+| [n8n-mcp-skills](https://github.com/czlonkowski/n8n-skills) | 7 Claude Code skills for n8n workflow building | `~/.claude/settings.json` |
 
-Configured in `~/.claude/settings.json` via:
-```json
-"mcpServers": {
-  "n8n-mcp": {
-    "command": "npx",
-    "args": ["-y", "n8n-mcp"]
-  }
-}
-```
+### Services
 
-### n8n-Skills Plugin
-[czlonkowski/n8n-skills](https://github.com/czlonkowski/n8n-skills) — a Claude Code plugin with 7 expert skills covering expression syntax, workflow patterns, node configuration, validation, and JavaScript/Python code generation. The skills activate automatically when working on n8n-related tasks.
+| Service | URL |
+|---|---|
+| n8n | [n8n.avernus.cloud](https://n8n.avernus.cloud) |
+| AFFiNE | [affine.avernus.cloud](https://affine.avernus.cloud) |
+| AFFiNE Todo Bridge | Internal Docker network, port 30170 |
 
-## Structure
+### Required credentials in n8n
 
-Workflows will be organized by use case as they are added.
-
-## Notes
-
-- Never deploy AI-generated workflows directly to production — always test in a development environment first and export a backup beforehand.
+- Gmail OAuth2
+- Google Calendar OAuth2
+- Anthropic API key (Claude Haiku 4.5)
