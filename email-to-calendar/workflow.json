@@ -31,7 +31,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=Analyze this email and extract two things:\n1. Any appointment / meeting with a specific proposed date and time\n2. Any action item that requires follow-up\n\nFrom: {{ $json.from }}\nSubject: {{ $json.subject }}\nDate: {{ $json.date }}\nBody:\n{{ $json.text || $json.snippet || '' }}\n\nReturn ONLY this JSON (no markdown, no code blocks):\n{\n  \"hasAppointment\": true or false,\n  \"title\": \"calendar event title\",\n  \"date\": \"YYYY-MM-DD or empty\",\n  \"startTime\": \"HH:MM in 24h or empty\",\n  \"endTime\": \"HH:MM in 24h or empty\",\n  \"description\": \"short appointment description or empty\",\n  \"location\": \"location or empty\",\n  \"hasTodo\": true or false,\n  \"todoTitle\": \"short action item, max 80 chars\",\n  \"todoDescription\": \"what specifically needs to be done or empty\"\n}\n\nRules:\n- hasAppointment: ONLY true when a specific date is explicitly proposed\n- hasTodo: true when any follow-up action is required (reply, review, purchase, register, etc.)\n- hasTodo: false for purely informational emails with no action needed",
+        "text": "=Analyze this email and extract two things:\n1. Any appointment or meeting with a specific proposed date and time\n2. Any todo item — including action items, shipping confirmations, invoices, registrations, or anything worth tracking\n\nFrom: {{ $json.from }}\nSubject: {{ $json.subject }}\nDate: {{ $json.date }}\nBody:\n{{ $json.text || $json.snippet || '' }}\n\nReturn ONLY this JSON (no markdown, no code blocks):\n{\n  \"hasAppointment\": true or false,\n  \"title\": \"calendar event title\",\n  \"date\": \"YYYY-MM-DD or empty\",\n  \"startTime\": \"HH:MM in 24h or empty\",\n  \"endTime\": \"HH:MM in 24h or empty\",\n  \"description\": \"short appointment description or empty\",\n  \"location\": \"location or empty\",\n  \"hasTodo\": true or false,\n  \"todoTitle\": \"short title, max 80 chars\",\n  \"todoDescription\": \"one sentence describing what to track or do\"\n}\n\nRules for hasAppointment:\n- ONLY true when a specific date is explicitly proposed or confirmed\n\nRules for hasTodo — set true for ANY of these:\n- Action required: reply, confirm, register, pay, download, fill out form\n- Shipping / delivery: order shipped, tracking number, delivery expected\n- Invoice or receipt: payment due, order confirmation, subscription renewed\n- Reservation confirmed: hotel, restaurant, travel booking\n- Deadline reminder: expiry, renewal, application due\n- Information worth saving: login credentials sent, contract attached\n- Set false ONLY for newsletters, marketing, and purely informational emails with zero personal relevance\n\nFor shipping confirmations use todoTitle like: \"Paket im Anmarsch: [shop/item]\" and include tracking number in todoDescription if present.",
         "options": {}
       },
       "id": "3c4d5e6f-7a8b-9012-cdef-123456789012",
@@ -43,7 +43,7 @@
     {
       "parameters": {
         "model": "claude-haiku-4-5-20251001",
-        "options": { "maxTokensToSample": 512, "temperature": 0 }
+        "options": { "maxTokensToSample": 768, "temperature": 0 }
       },
       "id": "4d5e6f7a-8b9c-0123-def0-234567890123",
       "name": "Claude Haiku 4.5",
