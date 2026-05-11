@@ -148,7 +148,9 @@ function buildNewPageDoc(pageTitle, todos) {
 
 // Append todo blocks to an existing AFFiNE page
 async function appendTodosToDoc(docId, todos) {
+  console.log('[appendTodos] fetching doc:', docId);
   const existing = await fetchDocBinary(docId);
+  console.log('[appendTodos] doc fetched, bytes:', existing.length);
 
   const doc = new Y.Doc();
   Y.applyUpdate(doc, existing);
@@ -184,6 +186,8 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 // POST /todo  { title, description?, emailFrom?, emailDate? }
 app.post('/todo', async (req, res) => {
   try {
+    console.log('[/todo] request body:', JSON.stringify(req.body));
+    console.log('[/todo] TODO_DOC_ID:', TODO_DOC_ID || '(not set)');
     const { title, description, emailFrom, emailDate } = req.body;
     if (!title) return res.status(400).json({ error: 'title is required' });
 
@@ -217,7 +221,7 @@ app.post('/todo', async (req, res) => {
       url: `${AFFINE_URL}/workspace/${WORKSPACE_ID}/${docId}`,
     });
   } catch (err) {
-    console.error('[/todo]', err.message);
+    console.error('[/todo] FULL ERROR:', err);
     res.status(500).json({ error: err.message });
   }
 });
