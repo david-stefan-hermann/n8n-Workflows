@@ -171,17 +171,18 @@ function buildNewPageDoc(pageTitle, todos) {
   };
 }
 
-// Append todo blocks to an existing AFFiNE page
+// Append todo blocks under the "Email Todos" h2 in an existing AFFiNE page.
+// Creates the h2 if it doesn't exist yet.
 async function appendTodosToDoc(docId, todos) {
   const existing = await fetchDocBinary(docId);
 
   const doc = new Y.Doc();
   Y.applyUpdate(doc, existing);
-  const svBefore = Y.encodeStateVector(doc); // snapshot before our changes
+  const svBefore = Y.encodeStateVector(doc);
 
   const blocks = doc.getMap('blocks');
 
-  // Find the first affine:note block (editable area)
+  // Find affine:note (editable area)
   let noteBlock = null;
   blocks.forEach(block => {
     if (!noteBlock && block instanceof Y.Map && block.get('sys:flavour') === 'affine:note') {
@@ -191,6 +192,40 @@ async function appendTodosToDoc(docId, todos) {
   if (!noteBlock) throw new Error('No affine:note block found in doc');
 
   const noteChildren = noteBlock.get('sys:children');
+
+  // Look for an existing "Email Todos" h2 paragraph
+  let hasH2 = false;
+  for (let i = 0; i < noteChildren.length; i++) {
+    const child = blocks.get(noteChildren.get(i));
+    if (
+      child instanceof Y.Map &&
+      child.get('sys:flavour') === 'affine:paragraph' &&
+      child.get('prop:type') === 'h2' &&
+      child.get('prop:text')?.toString() === 'Email Todos'
+    ) {
+      hasH2 = true;
+      break;
+    }
+  }
+
+  // Create the h2 heading if missing
+  if (!hasH2) {
+    const h2Id = genId();
+    const h2 = new Y.Map();
+    h2.set('sys:id', h2Id);
+    h2.set('sys:flavour', 'affine:paragraph');
+    h2.set('sys:version', 1);
+    h2.set('sys:children', new Y.Array());
+    h2.set('prop:type', 'h2');
+    const h2Text = new Y.Text();
+    h2Text.insert(0, 'Email Todos');
+    h2.set('prop:text', h2Text);
+    h2.set('prop:collapsed', false);
+    blocks.set(h2Id, h2);
+    noteChildren.push([h2Id]);
+  }
+
+  // Append todos after the h2 (at end of note)
   todos.forEach(text => {
     const id = genId();
     blocks.set(id, makeTodoBlock(id, text));

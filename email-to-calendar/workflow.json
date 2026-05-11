@@ -138,10 +138,16 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://affine-todo-bridge:3000/todo",
+        "url": "http://10.69.69.230:30170/todo",
         "sendBody": true,
-        "bodyContentType": "json",
-        "jsonBody": "={{ JSON.stringify({ title: $json.todoTitle, description: $json.todoDescription, emailFrom: $json.emailFrom, emailDate: $json.emailDate }) }}",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "title",       "value": "={{ $json.todoTitle }}" },
+            { "name": "description", "value": "={{ $json.todoDescription }}" },
+            { "name": "emailFrom",   "value": "={{ $json.emailFrom }}" },
+            { "name": "emailDate",   "value": "={{ $json.emailDate }}" }
+          ]
+        },
         "options": {}
       },
       "id": "a1b2c3d4-e5f6-7890-3456-901234567890",
