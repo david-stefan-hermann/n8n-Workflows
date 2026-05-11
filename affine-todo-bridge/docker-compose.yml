@@ -5,6 +5,8 @@ services:
     container_name: affine-todo-bridge
     restart: unless-stopped
     env_file: .env
+    ports:
+      - "30170:3000"
     networks:
       - ix-n8n_ix-internal-n8n-net
 
